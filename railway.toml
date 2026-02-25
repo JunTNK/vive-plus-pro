@@ -1,0 +1,19 @@
+# ===========================================
+# VIVE PLUS PRO - Railway Configuration
+# ===========================================
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "vive-plus-pro"
+
+[services.variables]
+NODE_ENV = "production"
