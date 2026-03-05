@@ -1,0 +1,78 @@
+# ===========================================
+# VIVE PLUS PRO - Docker Compose
+# Para deployment fácil en cualquier servidor
+# ===========================================
+
+services:
+  # Aplicación Principal
+  vive-plus-pro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vive-plus-pro-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/db/custom.db
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-vive-plus-pro-secret-key-2024}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      # Persistir base de datos
+      - vive-db:/app/db
+      # Persistir uploads
+      - vive-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - vive-network
+
+  # Nginx Reverse Proxy (opcional para SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: vive-plus-pro-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - vive-plus-pro
+    networks:
+      - vive-network
+    profiles:
+      - production
+
+  # Certbot para SSL automático (opcional)
+  certbot:
+    image: certbot/certbot
+    container_name: vive-plus-pro-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - vive-network
+    profiles:
+      - production
+
+volumes:
+  vive-db:
+    driver: local
+  vive-uploads:
+    driver: local
+
+networks:
+  vive-network:
+    driver: bridge
