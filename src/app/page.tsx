@@ -1,13 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import dynamic from 'next/dynamic';
-
-// Componentes client-only para evitar hidratación
-const Tabs = dynamic(() => import('@/components/ui/tabs').then(mod => mod.Tabs), { ssr: false });
-const TabsContent = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsContent), { ssr: false });
-const TabsList = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsList), { ssr: false });
-const TabsTrigger = dynamic(() => import('@/components/ui/tabs').then(mod => mod.TabsTrigger), { ssr: false });
 const AsistenteIA = dynamic(() => import('@/components/asistente/AsistenteIA'), { ssr: false });
 const GoogleCalendarConnect = dynamic(() => import('@/components/GoogleCalendarConnect'), { ssr: false });
 const ParticipanteForm = dynamic(() => import('@/components/ParticipanteForm'), { ssr: false });
@@ -24,7 +19,7 @@ import {
   Users, Calendar, Activity, FileText, Plus, Search, 
   Home, Phone, AlertCircle, Clock, MapPin, Edit, Trash2,
   Heart, BookOpen, Music, Gamepad, Sparkles,
-  CheckCircle2, XCircle, Timer, Dumbbell, Brain, Loader2, Download, Share2, FileImage, TrendingUp, Shield, BarChart3, LineChart, GitCompare, Settings, Key, Database, Globe, Check, X
+  CheckCircle2, XCircle, Timer, Dumbbell, Brain, Loader2, Download, Share2, FileImage, TrendingUp, Shield, BarChart3, LineChart, GitCompare
 } from 'lucide-react';
 import { 
   LineChart as RechartsLineChart, 
@@ -214,18 +209,6 @@ interface Estadisticas {
   visitasPorEstado: { estado: string; cantidad: number }[];
 }
 
-interface ConfiguracionItem {
-  id: string;
-  clave: string;
-  valor: string;
-  descripcion: string | null;
-  categoria: string;
-  esSecreto: boolean;
-  activo: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // Utilidades
 const formatDate = (date: Date | string) => {
   const d = new Date(date);
@@ -342,42 +325,14 @@ export default function HomePage() {
   const [evaluacionesParaComparar, setEvaluacionesParaComparar] = useState<Evaluacion[]>([]);
   const [cargandoProgreso, setCargandoProgreso] = useState(false);
   
-  // Estado para configuración del sistema
-  const [configStatus, setConfigStatus] = useState<{
-    allConfigured: boolean;
-    config: any;
-    missingVariables: string[];
-  } | null>(null);
-  const [configuraciones, setConfiguraciones] = useState<ConfiguracionItem[]>([]);
-  const [editandoConfig, setEditandoConfig] = useState<ConfiguracionItem | null>(null);
-  const [configForm, setConfigForm] = useState({
-    clave: '',
-    valor: '',
-    descripcion: '',
-    categoria: 'general',
-    esSecreto: false
-  });
-  const [guardandoConfig, setGuardandoConfig] = useState(false);
-  
-  // Estado para protección de configuraciones sensibles
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [verificandoPassword, setVerificandoPassword] = useState(false);
-  const [configSolicitada, setConfigSolicitada] = useState<ConfiguracionItem | null>(null);
-  
   // Estado de conexión - inicializar con valores por defecto para evitar hidratación
   const [isOnline, setIsOnline] = useState(true);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [currentYear, setCurrentYear] = useState(2025);
-  const [currentDateString, setCurrentDateString] = useState('');
   
   // Efecto para detectar conexión - solo en cliente
   useEffect(() => {
     setMounted(true);
-    setCurrentYear(new Date().getFullYear());
-    setCurrentDateString(new Date().toLocaleDateString('es-PR', { weekday: 'long', day: 'numeric', month: 'long' }));
     setIsOnline(navigator.onLine);
     
     const handleOnline = () => {
@@ -615,149 +570,6 @@ export default function HomePage() {
       console.error('Error al cargar notas:', error);
       setNotas([]);
     }
-  };
-
-  // Cargar estado de configuración
-  const cargarConfiguracion = async () => {
-    try {
-      const [statusRes, configRes] = await Promise.all([
-        fetch('/api/config'),
-        fetch('/api/configuracion')
-      ]);
-      const statusData = await statusRes.json();
-      const configData = await configRes.json();
-      setConfigStatus(statusData);
-      setConfiguraciones(Array.isArray(configData) ? configData : []);
-    } catch (error) {
-      console.error('Error al cargar configuración:', error);
-    }
-  };
-
-  // Guardar configuración
-  const guardarConfiguracion = async () => {
-    if (!configForm.clave || !configForm.valor) {
-      toast({ title: 'Error', description: 'Clave y valor son requeridos', variant: 'destructive' });
-      return;
-    }
-
-    setGuardandoConfig(true);
-    try {
-      const res = await fetch('/api/configuracion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configForm)
-      });
-
-      if (res.ok) {
-        toast({ title: '✅ Guardado', description: 'Configuración guardada correctamente' });
-        setEditandoConfig(null);
-        setConfigForm({ clave: '', valor: '', descripcion: '', categoria: 'general', esSecreto: false });
-        cargarConfiguracion();
-      } else {
-        throw new Error('Error al guardar');
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo guardar la configuración', variant: 'destructive' });
-    } finally {
-      setGuardandoConfig(false);
-    }
-  };
-
-  // Eliminar configuración
-  const eliminarConfiguracion = async (id: string) => {
-    try {
-      const res = await fetch(`/api/configuracion/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (res.ok) {
-        toast({ title: 'Eliminado', description: 'Configuración eliminada' });
-        cargarConfiguracion();
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo eliminar', variant: 'destructive' });
-    }
-  };
-
-  // Editar configuración
-  const iniciarEdicionConfig = (config: ConfiguracionItem) => {
-    setEditandoConfig(config);
-    setConfigForm({
-      clave: config.clave,
-      valor: '', // No mostramos el valor real si es secreto
-      descripcion: config.descripcion || '',
-      categoria: config.categoria,
-      esSecreto: config.esSecreto
-    });
-  };
-
-  // Verificar contraseña de administrador
-  const verificarPasswordAdmin = async () => {
-    setVerificandoPassword(true);
-    try {
-      const res = await fetch('/api/config/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPassword })
-      });
-
-      const data = await res.json();
-
-      if (data.success && data.authenticated) {
-        setIsAdminAuthenticated(true);
-        setPasswordDialogOpen(false);
-        setAdminPassword('');
-        toast({ title: '✅ Acceso Autorizado', description: 'Ahora puedes ver y editar las configuraciones protegidas' });
-        
-        // Si había una configuración solicitada, cargar valores reales
-        if (configSolicitada) {
-          cargarConfiguracionesProtegidas();
-        }
-      } else {
-        toast({ title: '❌ Acceso Denegado', description: 'Contraseña incorrecta', variant: 'destructive' });
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo verificar la contraseña', variant: 'destructive' });
-    } finally {
-      setVerificandoPassword(false);
-    }
-  };
-
-  // Cargar configuraciones protegidas (con valores reales)
-  const cargarConfiguracionesProtegidas = async () => {
-    try {
-      const res = await fetch('/api/configuracion/protegida', {
-        headers: {
-          'Authorization': `Bearer VivePlusPro2024!Admin`
-        }
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setConfiguraciones(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      console.error('Error al cargar configuraciones protegidas:', error);
-    }
-  };
-
-  // Solicitar acceso a configuración protegida
-  const solicitarAccesoConfig = (config: ConfiguracionItem) => {
-    if (isAdminAuthenticated) {
-      // Ya autenticado, permitir edición
-      iniciarEdicionConfig(config);
-    } else {
-      // Requerir autenticación
-      setConfigSolicitada(config);
-      setPasswordDialogOpen(true);
-    }
-  };
-
-  // Cerrar sesión de admin
-  const cerrarSesionAdmin = () => {
-    setIsAdminAuthenticated(false);
-    toast({ title: 'Sesión Cerrada', description: 'Las configuraciones protegidas ahora están ocultas' });
-    cargarConfiguracion(); // Recargar con valores ocultos
   };
 
   // CRUD Adulto Mayor
@@ -1810,34 +1622,30 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex flex-wrap gap-1 w-full justify-start lg:w-auto">
-            <TabsTrigger value="dashboard" className="flex items-center gap-1.5 px-3">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Inicio</span>
             </TabsTrigger>
-            <TabsTrigger value="adultos" className="flex items-center gap-1.5 px-3">
+            <TabsTrigger value="adultos" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Adultos</span>
             </TabsTrigger>
-            <TabsTrigger value="evaluaciones" className="flex items-center gap-1.5 px-3">
+            <TabsTrigger value="evaluaciones" className="flex items-center gap-2">
               <Heart className="h-4 w-4" />
               <span className="hidden sm:inline">Evaluaciones</span>
             </TabsTrigger>
-            <TabsTrigger value="programas" className="flex items-center gap-1.5 px-3">
+            <TabsTrigger value="programas" className="flex items-center gap-2">
               <Dumbbell className="h-4 w-4" />
               <span className="hidden sm:inline">Programas</span>
             </TabsTrigger>
-            <TabsTrigger value="visitas" className="flex items-center gap-1.5 px-3">
+            <TabsTrigger value="visitas" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Visitas</span>
             </TabsTrigger>
-            <TabsTrigger value="actividades" className="flex items-center gap-1.5 px-3">
+            <TabsTrigger value="actividades" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Actividades</span>
-            </TabsTrigger>
-            <TabsTrigger value="configuracion" className="flex items-center gap-1.5 px-3">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Config</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1857,7 +1665,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-gradient-to-r from-[#00C6D7] to-[#00A8B5] text-white px-3 py-1">
-                      {currentDateString || 'Cargando...'}
+                      {new Date().toLocaleDateString('es-PR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </Badge>
                   </div>
                 </div>
@@ -2717,431 +2525,12 @@ export default function HomePage() {
               )}
             </div>
           </TabsContent>
-
-          {/* Configuración */}
-          <TabsContent value="configuracion" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">⚙️ Configuración</h2>
-                <p className="text-sm text-gray-500">Variables de entorno y configuración del sistema</p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {isAdminAuthenticated ? (
-                  <Button 
-                    onClick={cerrarSesionAdmin}
-                    variant="destructive"
-                    className="flex items-center gap-2"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Cerrar Sesión Admin
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={() => setPasswordDialogOpen(true)}
-                    variant="outline"
-                    className="flex items-center gap-2 border-amber-500 text-amber-700 hover:bg-amber-50"
-                  >
-                    <Key className="h-4 w-4" />
-                    Acceso Admin
-                  </Button>
-                )}
-                <Button 
-                  onClick={() => {
-                    setEditandoConfig({ id: 'new', clave: '', valor: '', descripcion: '', categoria: 'general', esSecreto: false, activo: true, createdAt: '', updatedAt: '' });
-                    setConfigForm({ clave: '', valor: '', descripcion: '', categoria: 'general', esSecreto: false });
-                  }}
-                  className="bg-[#00C6D7] hover:bg-[#00A8B5] text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nueva Variable
-                </Button>
-                <Button 
-                  onClick={cargarConfiguracion}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Activity className="h-4 w-4" />
-                  Verificar
-                </Button>
-              </div>
-            </div>
-
-            {/* Banner de estado de autenticación */}
-            {isAdminAuthenticated && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                <span className="text-green-800 font-medium">Modo Administrador Activo</span>
-                <span className="text-green-600 text-sm">- Puedes ver y editar valores protegidos</span>
-              </div>
-            )}
-
-            {/* Dialog para contraseña de administrador */}
-            <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Key className="h-5 w-5 text-amber-500" />
-                    Acceso Administrador
-                  </DialogTitle>
-                  <DialogDescription>
-                    Ingresa la contraseña para ver y editar configuraciones protegidas
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="adminPassword">Contraseña</Label>
-                    <Input
-                      id="adminPassword"
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Ingresa la contraseña de administrador"
-                      onKeyDown={(e) => e.key === 'Enter' && verificarPasswordAdmin()}
-                    />
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-lg text-sm text-amber-700">
-                    <strong>⚠️ Nota:</strong> Las configuraciones de Google y autenticación están protegidas por seguridad.
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={verificarPasswordAdmin}
-                    disabled={verificandoPassword || !adminPassword}
-                    className="bg-[#00C6D7] hover:bg-[#00A8B5]"
-                  >
-                    {verificandoPassword ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verificando...</>
-                    ) : (
-                      'Acceder'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Variables de Entorno Guardadas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5 text-[#00C6D7]" />
-                  Variables de Configuración
-                </CardTitle>
-                <CardDescription>
-                  {isAdminAuthenticated 
-                    ? 'Mostrando valores reales (Modo Administrador)'
-                    : 'Los valores sensibles están ocultos por seguridad'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {configuraciones.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Settings className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No hay configuraciones guardadas</p>
-                    <p className="text-sm">Haz clic en "Verificar" para cargar las variables</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Agrupar por categoría */}
-                    {['google', 'auth', 'database', 'general'].map(categoria => {
-                      const configsCategoria = configuraciones.filter(c => c.categoria === categoria);
-                      if (configsCategoria.length === 0) return null;
-                      
-                      const categoriaLabels: Record<string, string> = {
-                        google: '🔑 Google OAuth',
-                        auth: '🔐 Autenticación',
-                        database: '💾 Base de Datos',
-                        general: '📋 General'
-                      };
-                      
-                      // Verificar si esta categoría está protegida
-                      const categoriaProtegida = categoria === 'google' || categoria === 'auth';
-                      
-                      return (
-                        <div key={categoria} className="space-y-2">
-                          <h4 className="font-medium text-sm text-gray-600 mt-4 first:mt-0 flex items-center gap-2">
-                            {categoriaLabels[categoria] || categoria}
-                            {categoriaProtegida && !isAdminAuthenticated && (
-                              <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                                🔒 Protegido
-                              </Badge>
-                            )}
-                          </h4>
-                          <div className="grid gap-2">
-                            {configsCategoria.map((config) => (
-                              <div 
-                                key={config.id}
-                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono text-sm font-medium">{config.clave}</span>
-                                    {config.esSecreto && (
-                                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                                        Secreto
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-gray-500 truncate">
-                                    {config.descripcion || 'Sin descripción'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <code className="text-xs bg-white px-2 py-1 rounded border max-w-[150px] truncate">
-                                    {(config.esSecreto || categoriaProtegida) && !isAdminAuthenticated 
-                                      ? '••••••••••••' 
-                                      : config.valor}
-                                  </code>
-                                  {(categoriaProtegida || config.esSecreto) && !isAdminAuthenticated ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => solicitarAccesoConfig(config)}
-                                      className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                      title="Requiere autenticación"
-                                    >
-                                      <Key className="h-4 w-4" />
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => iniciarEdicionConfig(config)}
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {isAdminAuthenticated && (
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700">
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>¿Eliminar configuración?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Se eliminará la variable <strong>{config.clave}</strong>. Esta acción no se puede deshacer.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => eliminarConfiguracion(config.id)}
-                                            className="bg-red-500 hover:bg-red-600"
-                                          >
-                                            Eliminar
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Dialog para Editar/Crear Configuración */}
-            <Dialog open={!!editandoConfig} onOpenChange={(open) => !open && setEditandoConfig(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editandoConfig?.id === 'new' ? '➕ Nueva Variable' : '✏️ Editar Variable'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Configura una variable de entorno del sistema
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="clave">Clave (Nombre de la variable)</Label>
-                    <Input
-                      id="clave"
-                      value={configForm.clave}
-                      onChange={(e) => setConfigForm(prev => ({ ...prev, clave: e.target.value.toUpperCase() }))}
-                      placeholder="Ej: GOOGLE_CLIENT_ID"
-                      disabled={editandoConfig?.id !== 'new'}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="valor">Valor</Label>
-                    <Textarea
-                      id="valor"
-                      value={configForm.valor}
-                      onChange={(e) => setConfigForm(prev => ({ ...prev, valor: e.target.value }))}
-                      placeholder="Ingresa el valor de la variable"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="descripcion">Descripción</Label>
-                    <Input
-                      id="descripcion"
-                      value={configForm.descripcion}
-                      onChange={(e) => setConfigForm(prev => ({ ...prev, descripcion: e.target.value }))}
-                      placeholder="¿Para qué sirve esta variable?"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="categoria">Categoría</Label>
-                      <Select
-                        value={configForm.categoria}
-                        onValueChange={(v) => setConfigForm(prev => ({ ...prev, categoria: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="google">🔑 Google</SelectItem>
-                          <SelectItem value="auth">🔐 Autenticación</SelectItem>
-                          <SelectItem value="database">💾 Base de Datos</SelectItem>
-                          <SelectItem value="general">📋 General</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo</Label>
-                      <div className="flex items-center gap-2 pt-2">
-                        <input
-                          type="checkbox"
-                          id="esSecreto"
-                          checked={configForm.esSecreto}
-                          onChange={(e) => setConfigForm(prev => ({ ...prev, esSecreto: e.target.checked }))}
-                          className="rounded"
-                        />
-                        <Label htmlFor="esSecreto" className="text-sm font-normal">
-                          Es un secreto (ocultar valor)
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditandoConfig(null)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={guardarConfiguracion}
-                    disabled={guardandoConfig || !configForm.clave || !configForm.valor}
-                    className="bg-[#00C6D7] hover:bg-[#00A8B5]"
-                  >
-                    {guardandoConfig ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Guardando...</>
-                    ) : (
-                      'Guardar'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Estado de Variables de Entorno */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {configStatus?.allConfigured ? (
-                    <><CheckCircle2 className="h-5 w-5 text-green-500" /> Sistema Configurado</>
-                  ) : (
-                    <><AlertCircle className="h-5 w-5 text-amber-500" /> Verificar Estado</>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Estado de las variables de entorno del servidor
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!configStatus ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Settings className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Haz clic en "Verificar" para comprobar el estado</p>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Database className="h-5 w-5 text-[#00C6D7]" />
-                        <span className="font-medium">Base de Datos</span>
-                        {configStatus.config.database.configured ? (
-                          <Check className="h-4 w-4 text-green-500 ml-auto" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-500 ml-auto" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600">SQLite</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Key className="h-5 w-5 text-[#00C6D7]" />
-                        <span className="font-medium">Google OAuth</span>
-                        {configStatus.config.googleOAuth.clientIdConfigured ? (
-                          <Check className="h-4 w-4 text-green-500 ml-auto" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-500 ml-auto" />
-                        )}
-                      </div>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shield className="h-5 w-5 text-[#00C6D7]" />
-                        <span className="font-medium">NextAuth</span>
-                        {configStatus.config.nextAuth.secretConfigured ? (
-                          <Check className="h-4 w-4 text-green-500 ml-auto" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-500 ml-auto" />
-                        )}
-                      </div>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-5 w-5 text-[#00C6D7]" />
-                        <span className="font-medium">Entorno</span>
-                      </div>
-                      <Badge variant="outline">{configStatus.config.environment}</Badge>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Instrucciones para Vercel */}
-            <Card>
-              <CardHeader>
-                <CardTitle>📋 Instrucciones para Vercel</CardTitle>
-                <CardDescription>Cómo configurar las variables de entorno en producción</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p><strong>1.</strong> Ve a <strong>Settings → Environment Variables</strong></p>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p><strong>2.</strong> Agrega cada variable con su valor</p>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p><strong>3.</strong> Ve a <strong>Deployments → Redeploy</strong></p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </main>
 
       {/* Footer */}
       <footer className="mt-auto py-4 text-center text-sm text-gray-500 border-t bg-white">
-        <p>Vive Plus Pro © {currentYear} • Metodología SAFE • ECOSAFE PIVE 2020</p>
+        <p>Vive Plus Pro © 2024 • Metodología SAFE • ECOSAFE PIVE 2020</p>
       </footer>
 
       {/* Dialogs */}

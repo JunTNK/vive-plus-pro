@@ -224,18 +224,3 @@ model Nota {
   
   @@map("notas")
 }
-
-// Configuración del sistema
-model Configuracion {
-  id              String    @id @default(cuid())
-  clave           String    @unique  // Nombre de la variable
-  valor           String    // Valor de la variable
-  descripcion     String?   // Descripción de para qué sirve
-  categoria       String    @default("general") // "google", "auth", "database", "general"
-  esSecreto       Boolean   @default(false) // Si es sensible (no mostrar valor real)
-  activo          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  @@map("configuracion")
-}

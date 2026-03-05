@@ -2,35 +2,13 @@
 const CACHE_NAME = 'vive-plus-pro-v1';
 const OFFLINE_URL = '/offline.html';
 
-// Archivos a cachear para funcionamiento offline (solo del mismo origen)
+// Archivos a cachear para funcionamiento offline
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/logo.png',
   '/logo.svg',
   '/offline.html'
-];
-
-// Esquemas que NO se deben cachear (no soportados por Cache API)
-const SKIP_CACHE_SCHEMES = [
-  'chrome-extension',
-  'moz-extension',
-  'safari-extension',
-  'data:',
-  'blob:',
-  'about:',
-  'javascript:',
-  'file:'
-];
-
-// Dominios externos que no debemos cachear
-const SKIP_CACHE_DOMAINS = [
-  'googleusercontent.com',
-  'gstatic.com',
-  'google.com',
-  'googleapis.com',
-  'vercel.app',
-  'vercel.com'
 ];
 
 // Instalación del Service Worker
@@ -76,32 +54,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Verificar si la URL se puede cachear
-function canCache(url) {
-  try {
-    const urlObj = new URL(url, self.location.origin);
-    
-    // Verificar esquemas no soportados
-    if (SKIP_CACHE_SCHEMES.some(scheme => urlObj.protocol.startsWith(scheme))) {
-      return false;
-    }
-    
-    // Verificar dominios externos
-    if (SKIP_CACHE_DOMAINS.some(domain => urlObj.hostname.includes(domain))) {
-      return false;
-    }
-    
-    // Solo cachear recursos del mismo origen
-    if (urlObj.origin !== self.location.origin) {
-      return false;
-    }
-    
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
 // Interceptar peticiones de red
 self.addEventListener('fetch', (event) => {
   // Solo manejar peticiones GET
@@ -109,11 +61,6 @@ self.addEventListener('fetch', (event) => {
 
   const { request } = event;
   const url = new URL(request.url);
-
-  // Verificar si se puede cachear
-  if (!canCache(request.url)) {
-    return;
-  }
 
   // Estrategia para archivos estáticos: Cache First
   if (isStaticAsset(url.pathname)) {
@@ -148,8 +95,7 @@ async function cacheFirst(request) {
   try {
     const networkResponse = await fetch(request);
     
-    // Solo cachear si la respuesta es válida y se puede cachear
-    if (networkResponse.ok && canCache(request.url)) {
+    if (networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
@@ -166,8 +112,7 @@ async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
     
-    // Solo cachear respuestas exitosas
-    if (networkResponse.ok && canCache(request.url)) {
+    if (networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
@@ -193,17 +138,12 @@ async function networkFirst(request) {
 
 // Estrategia: Stale While Revalidate (para páginas)
 async function staleWhileRevalidate(request) {
-  // Verificar si se puede cachear
-  if (!canCache(request.url)) {
-    return fetch(request);
-  }
-
   const cache = await caches.open(CACHE_NAME);
   const cachedResponse = await cache.match(request);
 
   const fetchPromise = fetch(request)
     .then((networkResponse) => {
-      if (networkResponse.ok && canCache(request.url)) {
+      if (networkResponse.ok) {
         cache.put(request, networkResponse.clone());
       }
       return networkResponse;
